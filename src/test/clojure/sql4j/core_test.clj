@@ -14,7 +14,7 @@
   (^int deleteById [^java.util.Map m]))
 
 (def datasource-options {:adapter "h2"
-                         :url     "jdbc:h2:file:./target/sql4j;IGNORECASE=TRUE;SCHEMA=PUBLIC;MODE=mysql"
+                         :url     "jdbc:h2:mem:sql4j;IGNORECASE=TRUE;SCHEMA=PUBLIC;MODE=mysql"
                          :username "sa"})
 
 (def sql4j (Sql4J. (make-datasource datasource-options) Dialect/mysql "sql" true))

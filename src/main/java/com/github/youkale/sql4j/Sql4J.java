@@ -3,21 +3,21 @@ package com.github.youkale.sql4j;
 import clojure.java.api.Clojure;
 import clojure.lang.IFn;
 import clojure.lang.Keyword;
+import com.github.youkale.sql4j.cache.LRUCache;
 
 import javax.sql.DataSource;
 import java.lang.reflect.Proxy;
 
-
 public class Sql4J {
-    public static final String DEFAULT_GROUP_NAME = "sql4j";
 
-    private final DataSource dataSource;
+    private final LRUCache<Class<?>, Object> proxyLRUCache;
+
+    public static final String DEFAULT_GROUP_NAME = "sql4j";
 
     private static final IFn CLOJURE_REQUIRE;
 
     private static final IFn INIT_MAPPERS;
 
-    private final String groupName;
 
     static {
         CLOJURE_REQUIRE = Clojure.var("clojure.core", "require");
@@ -26,10 +26,10 @@ public class Sql4J {
     }
 
     public Sql4J(String groupName, DataSource dataSource, Dialect dialect, String mappersLocation, String mappersSuffix, boolean enableDebug) {
-        this.dataSource = dataSource;
-        this.groupName = groupName;
         INIT_MAPPERS.invoke(groupName, mappersLocation, mappersSuffix,
                 "debug", enableDebug, "quoting", Keyword.intern(dialect.name()));
+        this.proxyLRUCache = new LRUCache<>(100, clazz -> Proxy.newProxyInstance(clazz.getClassLoader(),
+                new Class[]{clazz}, new MapperProxy(groupName, clazz, dataSource)));
     }
 
     public Sql4J(DataSource dataSource, Dialect dialect, String mappersLocation, boolean enableDebug) {
@@ -45,8 +45,7 @@ public class Sql4J {
     }
 
     public <T> T lookup(Class<T> clazz) {
-        return (T) Proxy.newProxyInstance(clazz.getClassLoader(),
-                new Class[]{clazz}, new MapperProxy(groupName, clazz, dataSource));
+        return (T) proxyLRUCache.get(clazz);
     }
 
 }

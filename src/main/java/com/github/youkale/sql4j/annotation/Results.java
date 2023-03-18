@@ -2,10 +2,12 @@ package com.github.youkale.sql4j.annotation;
 
 import java.lang.annotation.*;
 
-@Target({ElementType.PARAMETER})
+/**
+ * query result mapping
+ */
+@Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-public @interface MapKey {
-
-    String value();
+public @interface Results {
+    Result[] value() default {};
 }

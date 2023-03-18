@@ -33,43 +33,41 @@ delete from `order`
 where id = :id
 
 
--- :name com.github.youkale.Order#list :? :*
--- :doc No params
-select *
-from order
+-- java unit test
+
+-- :name com.github.youkale.sql4j.OrderMapper#createTable :!
+-- :command :execute
+-- :result :affected
+-- :doc Create order table
+CREATE TABLE `order`
+(
+    `id`              INT         NOT NULL,
+    `order_no`        VARCHAR(50) NOT NULL
+);
+
+-- :name drop :! :n
+drop table `order`
+
+-- :name com.github.youkale.sql4j.OrderMapper#batchInsert :! :n
+    insert into `order` (`id`,`order_no`)
+    values :t*:orders
+
+-- :name saveOrder :! :n
+    insert into `order` (`id`,`order_no`)
+    values (:id, :orderNo)
+
+-- :name queryOrders :? :*
+select id as code, order_no as order_code from `order`
+where id in (:v*:ids)
 
 
--- :name com.github.youkale.Order#list :? :*
--- :doc No params
-select *
-from order
-
-
--- :name com.github.youkale.Order#get :? :1
--- :doc No params
-select *
-from order
+-- :name com.github.youkale.sql4j.OrderMapper#updateById :! :n
+update `order` set `order_no` = :orderNo
 where id = :id
 
-
--- :name com.github.youkale.Order#ids :? :*
--- :doc No params
-select id
-from order
+-- :name com.github.youkale.sql4j.OrderMapper#deleteById :! :n
+delete from `order`
 where id = :id
-
-
--- :name test-lookup :? :1
--- :doc No params
-select *
-from order
-where id = :id
-
-
--- :name com.github.youkale.Order#list
--- :doc No params
-select *
-from test
 
 -- testing
 
