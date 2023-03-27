@@ -87,7 +87,6 @@ public class OrderService {
         Assertions.assertEquals(3, orders.get(2).getId());
         Assertions.assertEquals("003", orders.get(2).getOrderNo());
 
-
         Order[] orderVec = lookup.getOrderVec(List.of(1, 2));
 
         Assertions.assertEquals(1, orderVec[0].getId());
@@ -119,6 +118,17 @@ public class OrderService {
         Assertions.assertEquals(2, orderIdsByVecPrim[1]);
         Assertions.assertEquals(3, orderIdsByVecPrim[2]);
         Assertions.assertEquals(4, orderIdsByVecPrim[3]);
+
+
+        List<Order> orderList = lookup.getOrderList(List.of(1, 2, 3, 4));
+        Assertions.assertEquals(1, orderList.get(0).getId());
+        Assertions.assertEquals("001", orderList.get(0).getOrderNo());
+
+        Assertions.assertEquals(2, orderList.get(1).getId());
+        Assertions.assertEquals("002", orderList.get(1).getOrderNo());
+
+        Assertions.assertEquals(3, orderList.get(2).getId());
+        Assertions.assertEquals("003", orderList.get(2).getOrderNo());
 
         lookup.dropTable();
     }

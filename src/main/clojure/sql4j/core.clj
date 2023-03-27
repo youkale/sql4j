@@ -191,9 +191,9 @@
      :row-fn      (fn [r]
                     (reduce-kv
                       (fn [i k v]
-                        (invoke-bean-write-method i v (get r k)))
+                        (invoke-bean-write-method i (get mapping k k) v))
                       (construct-proxy def-type)
-                      mapping))}))
+                      r))}))
 
 (defn- result-handle [^MethodSignature method-signature {:keys [result command]}]
   (let [res (hug/hugsql-result-fn result)

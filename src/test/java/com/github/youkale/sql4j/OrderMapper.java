@@ -27,6 +27,11 @@ public interface OrderMapper {
     List<Order> getOrders(@Param("ids") List<Integer> ids);
 
 
+    @Alias("getOrderList")
+    @Results(value = {
+            @Result(property = "orderNo", column = "order_code")})
+    List<Order> getOrderList(@Param("ids") List<Integer> ids);
+
     @Alias("queryOrders")
     @Results(value = {
             @Result(property = "id", column = "code"),

@@ -60,6 +60,11 @@ drop table `order`
 select id as code, order_no as order_code from `order`
 where id in (:v*:ids)
 
+
+-- :name getOrderList :? :*
+select id, order_no as order_code from `order`
+where id in (:v*:ids)
+
 -- :name queryOrder :? :1
 select id as code, order_no as order_code from `order`
 where id = :id
