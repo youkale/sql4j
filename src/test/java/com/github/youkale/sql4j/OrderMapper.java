@@ -7,7 +7,6 @@ import com.github.youkale.sql4j.annotation.Result;
 import com.github.youkale.sql4j.annotation.Results;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface OrderMapper {
 
@@ -26,4 +25,28 @@ public interface OrderMapper {
             @Result(property = "id", column = "code"),
             @Result(property = "orderNo", column = "order_code")})
     List<Order> getOrders(@Param("ids") List<Integer> ids);
+
+
+    @Alias("queryOrders")
+    @Results(value = {
+            @Result(property = "id", column = "code"),
+            @Result(property = "orderNo", column = "order_code")})
+    Order[] getOrderVec(@Param("ids") List<Integer> ids);
+
+
+    @Alias("queryOrder")
+    @Results(value = {
+            @Result(property = "id", column = "code"),
+            @Result(property = "orderNo", column = "order_code")})
+    Order getOrder(@Param("id") Integer id);
+
+    @Alias("queryOrderIds")
+    List<Integer> getOrderIds(@Param("ids") List<Integer> ids);
+
+
+    @Alias("queryOrderIds")
+    Integer[] getOrderIdsByVec(@Param("ids") List<Integer> ids);
+
+    @Alias("queryOrderIds")
+    int[] getOrderIdsByVecPrim(@Param("ids") List<Integer> ids);
 }

@@ -21,4 +21,12 @@ public class Order {
     public void setOrderNo(String orderNo) {
         this.orderNo = orderNo;
     }
+
+    @Override
+    public String toString() {
+        return "Order{" +
+                "id=" + id +
+                ", orderNo='" + orderNo + '\'' +
+                '}';
+    }
 }

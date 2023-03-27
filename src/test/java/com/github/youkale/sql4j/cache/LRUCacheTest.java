@@ -6,9 +6,9 @@ import org.junit.jupiter.api.Test;
 class LRUCacheTest {
 
     private final LRUCache<String, Integer> cache = new LRUCache<>(2, key -> {
-        if (key.equals("key3") || key.equals("key1")){
+        if (key.equals("key3") || key.equals("key1")) {
             return null;
-        }else {
+        } else {
             return Integer.valueOf(key.substring(3));
         }
     });
@@ -40,6 +40,7 @@ class LRUCacheTest {
 
         Assertions.assertNull(cache.put("key3", 5)); //缓存中的数据已经淘汰
     }
+
     @Test
     public void testClear() {
         cache.put("key1", 1);

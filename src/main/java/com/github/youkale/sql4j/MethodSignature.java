@@ -18,7 +18,7 @@ public class MethodSignature {
     private final Class<?> returnType;
     private final Class<?>[] genericReturnTypes;
 
-    private final Map<String,String> resultMapping;
+    private final Map<String, String> resultMapping;
 
     private final Parameter[] parameters;
 

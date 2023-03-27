@@ -42,6 +42,8 @@ public class LRUCache<K, V> {
                     cacheMap.put(key, value);
                 }
             }
+        } catch (Exception e) {
+            throw new CacheLoadingException(e);
         } finally {
             lock.writeLock().unlock();
         }

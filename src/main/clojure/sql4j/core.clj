@@ -4,14 +4,14 @@
     [clojure.string :as str]
     [clojure.tools.logging :as log]
     [clojure.walk :as walk]
-    [hugsql.core :as hug]
-    [sql4j.comm :refer [prim-cast-fn]])
+    [hugsql.core :as hug])
   (:import (clojure.lang ILookup)
            (com.github.youkale.sql4j MethodSignature)
            (com.github.youkale.sql4j.annotation Param)
+           (java.beans Introspector PropertyDescriptor)
            (java.io File)
-           (java.lang.reflect Parameter)
-           (java.util ArrayList List Map Set)))
+           (java.lang.reflect Method Parameter)
+           (java.util List Map Set)))
 (def ^:private config (atom {}))
 
 (defn def-db-fns [sql-file options]
@@ -35,49 +35,106 @@
                          (file-seq (io/as-file (io/resource dir))))]
          (def-db-fns f options))))))
 
-(deftype ParamMetaValue [param obj]
-  ILookup
-  (valAt [this key]
-    (.valAt this key nil))
-  (valAt [_ key not-found]
-    (if-let [p (.getAnnotation ^Parameter param Param)]
-      (if (or (= (.value p) key) (= (keyword (.value p)) key)) obj not-found)
-      (or (get obj key)
-          (get obj (keyword key) not-found)))))
+(defn- prep-args [arg]
+  (cond
+    (instance? List arg)
+    (into [] (map prep-args arg))
+    (instance? Set arg)
+    (into #{} (map prep-args arg))
+    (instance? Map arg)
+    (walk/keywordize-keys (into {} arg))
+    (map? arg)
+    (walk/keywordize-keys (into {} arg))
+    :else
+    (if (.isPrimitive (class arg))
+      arg
+      (bean arg))))
 
-(defn- make-param-meta-value [param object]
-  (ParamMetaValue.
-    param
-    (cond
-      (instance? List object)
-      (into [] object)
-      (instance? Set object)
-      (into #{} object)
-      (instance? Map object)
-      (walk/keywordize-keys (into {} object))
-      (map? object)
-      (walk/keywordize-keys (into {} object))
-      :else
-      (bean object))))
+(defn- unwrap-prim [x]
+  (condp = x
+    Character Character/TYPE
+    Boolean Boolean/TYPE
+    Byte Byte/TYPE
+    Short Short/TYPE
+    Integer Integer/TYPE
+    Long Long/TYPE
+    Float Float/TYPE
+    Double Double/TYPE
+    x))
 
-(defn- create-params-fn [params objs]
-  (reify ILookup
-    (valAt [this a]
-      (.valAt this a nil))
-    (valAt [_ a not-found]
-      (loop [args (seq (into [] objs))
-             pm (seq (into [] params))
-             obj (Object.)
-             res not-found]
-        (if (and args pm)
-          (let [pmv (make-param-meta-value (first pm) (first args))
-                r (get pmv a obj)]
-            (if (= obj r)
-              (recur (next args) (next pm) obj res)
-              (if (nil? r)
-                (recur (next args) (next pm) obj res)
-                (recur nil nil obj r))))
-          res)))))
+(defn- make-args-mapping [params objs]
+  (let [args (loop [args (seq (into [] objs))
+                    pm (seq (into [] params))
+                    obj (Object.)
+                    res nil]
+               (if (and args pm)
+                 (let [a (first args)
+                       ca (cond
+                            (instance? List a)
+                            (into [] a)
+                            (instance? Set a)
+                            (into #{} a)
+                            (instance? Map a)
+                            (walk/keywordize-keys (into {} a))
+                            (map? a)
+                            (walk/keywordize-keys (into {} a))
+                            :else
+                            (if (.isPrimitive (unwrap-prim (class a))) a (bean a)))
+                       item (if-let [p ^Param (.getAnnotation ^Parameter (first pm) Param)]
+                              (assoc res (keyword (.value p)) ca)
+                              (merge res ca))]
+                   (recur (next args) (next pm) obj item))
+                 res))]
+    (reify ILookup
+      (valAt [this a]
+        (.valAt this a nil))
+      (valAt [_ a not-found]
+        (get args a not-found)))))
+
+(defmulti prim-cast-fn (fn [& [x]]
+                         (unwrap-prim x)))
+(defmethod prim-cast-fn Boolean/TYPE [& _]
+  (fn [x] (cond
+            (instance? Boolean/TYPE x)
+            (boolean x)
+            (instance? Number x)
+            (> (.intValue x) 0))))
+(defmethod prim-cast-fn Byte/TYPE [_]
+  (fn [x] (when x (byte x))))
+
+(defmethod prim-cast-fn Short/TYPE [_]
+  (fn [x] (when x (short x))))
+
+(defmethod prim-cast-fn Integer/TYPE [_]
+  (fn [x] (when x (int x))))
+(defmethod prim-cast-fn Long/TYPE [_]
+  (fn [x] (when x (long x))))
+
+(defmethod prim-cast-fn Float/TYPE [_]
+  (fn [x] (when x (float x))))
+
+(defmethod prim-cast-fn Double/TYPE [_]
+  (fn [x] (when x (double x))))
+
+(defmethod prim-cast-fn Character/TYPE [_]
+  (fn [x] (when x (char x))))
+
+(def ^:private memoize-bean-write-method
+  (memoize (fn [^Class c]
+             (reduce (fn [i ^PropertyDescriptor p]
+                       (let [n (.getName p)
+                             w (.getWriteMethod p)]
+                         (if (and n w)
+                           (assoc i n w)
+                           i))) {} (seq (-> (Introspector/getBeanInfo c)
+                                            (.getPropertyDescriptors)))))))
+
+(defn invoke-bean-write-method [obj property val]
+  (let [props (memoize-bean-write-method (class obj))]
+    (when-let [m (get props property)]
+      (.invoke ^Method m obj (into-array [val])))
+    obj))
+
 (def ^:private boolean-array-type (class (make-array Boolean 0)))
 (def ^:private byte-array-type (class (make-array Byte 0)))
 (def ^:private short-array-type (class (make-array Short 0)))
@@ -88,67 +145,55 @@
 (def ^:private string-array-type (class (make-array String 0)))
 
 (defmulti command-options (fn [& [x]]
-                            (if
+                            (cond
                               (some #(= x %)
                                     [Boolean Boolean/TYPE Byte Byte/TYPE Short Short/TYPE
-                                     Integer Integer/TYPE Long Long/TYPE Float Float/TYPE Double Double/TYPE])
-                              :prim
-                              (condp = x
-                                boolean-array-type (Class/forName "[Z")
-                                byte-array-type (Class/forName "[B")
-                                short-array-type (Class/forName "[S")
-                                integer-array-type (Class/forName "[I")
-                                long-array-type (Class/forName "[J")
-                                float-array-type (Class/forName "[F")
-                                double-array-type (Class/forName "[D")
-                                x))))
+                                     Integer Integer/TYPE Long Long/TYPE Float Float/TYPE Double Double/TYPE]) :prim
+                              (some #(= x %)
+                                    [boolean-array-type (Class/forName "[Z")
+                                     byte-array-type (Class/forName "[B")
+                                     short-array-type (Class/forName "[S")
+                                     integer-array-type (Class/forName "[I")
+                                     long-array-type (Class/forName "[J")
+                                     float-array-type (Class/forName "[F")
+                                     double-array-type (Class/forName "[D")]) :prim-vec
+                              :else x)))
 
-(defmethod command-options :prim [& [x]]
-  {:raw? true :row-fn (prim-cast-fn x)})
+(defmethod command-options :prim [& [origin]]
+  {:raw? true :row-fn (fn [r]
+                        ((prim-cast-fn origin) (val (first r))))})
+(defmethod command-options :prim-vec [& [origin]]
+  (let [prim-type (.getComponentType origin)]
+    {:raw?          true :row-fn (fn [r]
+                                   ((prim-cast-fn prim-type) (val (first r))))
+     :result-set-fn (fn [x] (into-array prim-type x))}))
 
-(defmethod command-options (Class/forName "[Z") [& _]
-  {:raw?          true
-   :result-set-fn (fn [x] (into-array (Class/forName "[Z") x))
-   :row-fn        (prim-cast-fn Boolean/TYPE)})
-
-(defmethod command-options (Class/forName "[B") [& _]
-  {:raw? true :row-fn (prim-cast-fn Byte/TYPE) :result-set-fn (fn [x] (into-array Byte/TYPE x))})
-
-(defmethod command-options (Class/forName "[S") [& _]
-  {:raw? true :row-fn (prim-cast-fn Short/TYPE) :result-set-fn (fn [x] (into-array Short/TYPE x))})
-(defmethod command-options (Class/forName "[I") [& _]
-  {:raw? true :row-fn (prim-cast-fn Integer/TYPE) :result-set-fn (fn [x] (into-array Integer/TYPE x))})
-
-(defmethod command-options (Class/forName "[J") [& _]
-  {:raw? true :row-fn (prim-cast-fn Long/TYPE) :result-set-fn (fn [x] (into-array Long/TYPE x))})
-
-(defmethod command-options (Class/forName "[F") [& _]
-  {:raw? true :row-fn (prim-cast-fn Float/TYPE) :result-set-fn (fn [x] (into-array Float/TYPE x))})
-
-(defmethod command-options (Class/forName "[D") [& _]
-  {:raw? true :row-fn (prim-cast-fn Double/TYPE) :result-set-fn (fn [x] (into-array Double/TYPE x))})
 (defmethod command-options String [& _]
   {:raw? true})
 (defmethod command-options string-array-type [& _]
   {:raw? true :result-set-fn (fn [x] (into-array String x))})
 (defmethod command-options List [& [_ [gen-type] mapping]]
-  (println gen-type)
-  (println mapping)
-  {:keywordize? false :result-set-fn (fn [x] (ArrayList. x))
-   :row-fn      (fn [r]
-                  (reduce-kv
-                    (fn [init k v]
-                      (let [prop (symbol (str "set" (str/upper-case (first v)) (apply str (rest v))))
-                            db-val (get r k)]
-                        (. init prop db-val)
-                        init))
-                    (construct-proxy gen-type)
-                    mapping))})
+  (merge
+    (command-options gen-type nil mapping)
+    {:keywordize? false :result-set-fn (fn [x] (into [] x))}))
 (defmethod command-options Map [& _]
   {:keywordize? false :result-set-fn first})
 
-(defmethod command-options :default [& _]
-  {:keywordize? false :result-set-fn first})
+(defmethod command-options :default [& [^Class def-type _ mapping]]
+  (if (.isArray def-type)
+    (let [t (.getComponentType def-type)]
+      (merge
+        (command-options t nil mapping)
+        {:keywordize?   false
+         :result-set-fn (fn [rs]
+                          (into-array t rs))}))
+    {:keywordize? false
+     :row-fn      (fn [r]
+                    (reduce-kv
+                      (fn [i k v]
+                        (invoke-bean-write-method i v (get r k)))
+                      (construct-proxy def-type)
+                      mapping))}))
 
 (defn- result-handle [^MethodSignature method-signature {:keys [result command]}]
   (let [res (hug/hugsql-result-fn result)
@@ -180,7 +225,7 @@
         result-fn (result-handle method-signature (meta executor))]
     (fn [conn args]
       (let [run-id (gensym "exec")
-            param-fn (create-params-fn (.getParameters method-signature) args)]
+            param-fn (make-args-mapping (.getParameters method-signature) args)]
         (when debug
           (log/debugf "%s %s => %s " run-id class-with-method-or-hug-name (executor-debug param-fn)))
         (let [res (executor {:connection conn} param-fn
