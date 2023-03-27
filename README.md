@@ -82,6 +82,88 @@ public class Main {
 }
 
 ```
+## [HugSql](https://www.hugsql.org/) Usage
+
+### Declarations
+- `:name` indicates the name of the mapped mapper
+- `:command` The command to be executed, divided into `:execute` and `:query`, which means execute and query, can be written in one line with `:name`
+- `:result` result type, you can write a line with `:name`
+    - The corresponding `:command` for `:raw` can be `:execute` and `:query`.
+    - `:many`, `:one` The corresponding `:command` is `:query`.
+    - `:affected` corresponds to the `:command` as `:execute`.
+- `:doc` for document
+
+#### abbreviation
+- The `command` is `:execute`.
+    - `:execute`->`:!`.
+    - `:query`-> `:?` .
+- `:result'.
+  - `:many` -> `:*`.
+  - `:one` -> `:1`.
+  - `:affected`-> `:n`.
+
+#### Example
+- Multiple rows
+  ```sql
+  -- :name create-characters-table
+  -- :command :execute
+  -- :result :raw
+  -- :doc create-characters-table
+  -- Auto-increment and current timestamp are
+  -- for H2 databases (adjust to your database).
+    ```
+- Single row (query multiple rows)
+    ```sql
+    -- :name queryOrders :? :*
+    ```
+- Single row (single row query)
+    ```sql
+    -- :name queryOrders :? :!
+    ```
+
+### Placeholders
+- `:value` or `:v`, Value type parameter, here `:id` is `{"id": 123}`. [Doc](https://www.hugsql.org/hugsql-in-detail/parameter-types/sql-value-parameters)
+  ```sql
+  --:name value-param :? :*
+  select * from characters where id = :id
+
+  --:name value-param-with-param-type :? :*
+  select * from characters where id = :v:id
+    ```
+- `:value*` or `:v*` , Value list parameter, where `names` is `List<String >`. [Doc](https://www.hugsql.org/hugsql-in-detail/parameter-types/sql-value-list-parameters)
+  ```sql
+  --:name-value-list-param :? :*
+  select * from characters where name in (:v*:names)
+    ```
+- `:tuple` or `t`, here `id-name` is `[1 , "youkale"]`. [Doc](https://www.hugsql.org/hugsql-in-detail/parameter-types/sql-tuple-parameters) 
+    ```sql
+    -- :name tuple-param
+    -- :doc Tuple Param
+    select * from test
+    where (id, name) = :tuple:id-name
+    ```
+- `:tuple*` or `:t*`, Tuple list parameter, here `people` is `{"person": [[1, "Ed"], [2 "Al"], [3 "Bo"]]}``. [Doc](https://www.hugsql.org/hugsql-in-detail/parameter-types/sql-tuple-parameters)
+  ```sql
+  -- :name tuple-param-list
+  -- :doc Tuple Param List
+  insert into test (id, name)
+  value :t*:person
+  ```
+- `:identifier` or `i` , the quoted parameter, is replaced with the quoted field at runtime, for example mysql will be replaced with \`table\`. [Doc](https://www.hugsql.org/hugsql-in-detail/parameter-types/sql-identifier-parameters)
+    ```sql
+    --:name identifier-param :? :*
+    select * from :i:table-name
+    ```
+
+- `:identifier*` or `i*`,  The quoted list parameter, which is replaced with the quoted field at runtime. For example, mysql replaces it with \`columns\`. [Doc](https://www.hugsql.org/hugsql-in-detail/parameter-types/sql-identifier-list-parameters)
+  ```sql
+  --:name identifier-list-param :? :*
+  select :i*:column-names, count(*) as population
+  From the example
+  group by :i*:column-names
+  order by :i*:column-names
+  ```
+
 
 ## Implement
 

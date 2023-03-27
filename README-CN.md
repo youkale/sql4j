@@ -78,6 +78,88 @@ public class Main {
 
 ```
 
+## [HugSql](https://www.hugsql.org/) Usage 
+
+### 声明
+- `:name` 表示映射的mapper名称
+- `:command` 执行的命令, 分为 `:execute`和`:query`, 表示执行和查询,可以跟 `:name`写一行
+- `:result` 结果类型, 可以跟 `:name`写一行
+  - `:raw` 对应的`:command`可以为`:execute`和`:query`
+  - `:many`、`:one` 对应的`:command`为`:query`
+  - `:affected` 对应的`:command`为`:execute`
+- `:doc` 表示文档
+
+#### 简写
+- `command` 
+  - `:execute` -> `:!`
+  - `:query` -> `:?`
+- `:result`
+  - `:many` -> `:*`
+  - `:one` -> `:1`
+  - `:affected` -> `:n`
+
+#### 示例
+- 多行
+    ```sql
+    -- :name create-characters-table
+    -- :command :execute
+    -- :result :raw
+    -- :doc Create characters table
+    --  auto_increment and current_timestamp are
+    --  H2 Database specific (adjust to your DB)
+    ```
+- 单行(查询多行)
+    ```
+    -- :name queryOrders :? :*
+    ```
+- 单行(查询单行)
+    ```
+    -- :name queryOrders :? :!
+    ```
+
+### 占位符
+- `:value`或`:v` 值类型参数, 这里的`:id`为`{"id": 123}` [文档](https://www.hugsql.org/hugsql-in-detail/parameter-types/sql-value-parameters)
+    ```sql
+    --:name value-param :? :*
+    select * from characters where id = :id
+    
+    --:name value-param-with-param-type :? :*
+    select * from characters where id = :v:id
+    ```
+- `:value*`或`:v*` 值列表参数, 这里的`names`为`List<String>` [文档](https://www.hugsql.org/hugsql-in-detail/parameter-types/sql-value-list-parameters)
+    ```sql
+    --:name value-list-param :? :*
+    select * from characters where name in (:v*:names)
+    ```
+- `:tuple`或`:t` 元组参数, 这里`id-name`为`[1 ,"youkale"]`
+    ```sql
+    -- :name tuple-param
+    -- :doc Tuple Param
+    select * from test
+    where (id, name) = :tuple:id-name
+    ```
+- `:tuple*`或`:t*` 元组列表参数, 这里的`people`为`{"people": [[1, "Ed"], [2 "Al"], [3 "Bo"]]}` [文档](https://www.hugsql.org/hugsql-in-detail/parameter-types/sql-tuple-parameters)
+    ```sql
+    -- :name tuple-param-list
+    -- :doc Tuple Param List
+    insert into test (id, name)
+    values :t*:people
+    ```
+- `:identifier`或`i`, 引述参数，在运行时被替换成引述字段，比如mysql会替换成\`table\` [文档](https://www.hugsql.org/hugsql-in-detail/parameter-types/sql-identifier-parameters)
+    ```sql
+    --:name identifier-param :? :*
+    select * from :i:table-name
+    ```
+
+- `:identifier*`或`i*` 引述列表参数，在运行时被替换成引述字段，比如mysql会替换成\`columns\` [文档](https://www.hugsql.org/hugsql-in-detail/parameter-types/sql-identifier-list-parameters)
+    ```sql
+    --:name identifier-list-param :? :*
+    select :i*:column-names, count(*) as population
+    from example
+    group by :i*:column-names
+    order by :i*:column-names
+    ```
+
 ## 实现逻辑
 
 - mapper
