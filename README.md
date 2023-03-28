@@ -6,7 +6,7 @@
 </p>
 <p >
   <a href="LICENSE" target="_blank">
-    <img alt="MIT License" src="https://img.shields.io/badge/License-MIT-green" />
+    <img alt="Apache License" src="https://img.shields.io/badge/License-Apache 2-green" />
   </a>
 
   <img alt="Maven" src="https://img.shields.io/badge/-Maven-red?style=flat-square&logo=apachemaven&logoColor=white" />
@@ -31,9 +31,9 @@ output sql , but if you need to run on the server is more difficult . So I built
 
 ```xml
 <dependency>
-    <groupId>com.github.youkale</groupId>
+    <groupId>io.github.youkale</groupId>
     <artifactId>sql4j</artifactId>
-    <version>${version}</version>
+    <version>0.1.0</version>
 </dependency>
 ```
 
@@ -214,4 +214,4 @@ Translated with www.DeepL.com/Translator (free version)
 
 ## License
 
-[MIT](./LICENSE)
+[Apache License V2.0](./LICENSE)

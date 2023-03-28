@@ -6,7 +6,11 @@ import java.util.Map;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-
+/**
+ * simple LRU cache
+ * @param <K>
+ * @param <V>
+ */
 public class LRUCache<K, V> {
     private final Map<K, V> cacheMap;
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
