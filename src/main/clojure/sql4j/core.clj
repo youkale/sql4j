@@ -11,7 +11,8 @@
            (java.beans Introspector PropertyDescriptor)
            (java.io File)
            (java.lang.reflect Method Parameter)
-           (java.util List Map Set)))
+           (java.time LocalDate LocalDateTime ZoneId)
+           (java.util Date List Map Set)))
 (def ^:private config (atom {}))
 
 (defn def-db-fns [sql-file options]
@@ -95,35 +96,71 @@
       (valAt [_ a not-found]
         (get args a not-found)))))
 
-(defmulti prim-cast-fn (fn [& [x]]
-                         (unwrap-prim x)))
-(defmethod prim-cast-fn Boolean/TYPE [& _]
+(defmulti type-cast-fn (fn [& [x]] (unwrap-prim x)))
+(defmethod type-cast-fn Boolean/TYPE [& _]
   (fn [x] (cond
             (instance? Boolean/TYPE x)
             (boolean x)
             (instance? Number x)
             (> (.intValue x) 0))))
-(defmethod prim-cast-fn Byte/TYPE [_]
+(defmethod type-cast-fn Byte/TYPE [_]
   (fn [x] (when x (byte x))))
 
-(defmethod prim-cast-fn Short/TYPE [_]
+(defmethod type-cast-fn Short/TYPE [_]
   (fn [x] (when x (short x))))
 
-(defmethod prim-cast-fn Integer/TYPE [_]
+(defmethod type-cast-fn Integer/TYPE [_]
   (fn [x] (when x (int x))))
-(defmethod prim-cast-fn Long/TYPE [_]
+(defmethod type-cast-fn Long/TYPE [_]
   (fn [x] (when x (long x))))
 
-(defmethod prim-cast-fn Float/TYPE [_]
+(defmethod type-cast-fn Float/TYPE [_]
   (fn [x] (when x (float x))))
 
-(defmethod prim-cast-fn Double/TYPE [_]
+(defmethod type-cast-fn Double/TYPE [_]
   (fn [x] (when x (double x))))
 
-(defmethod prim-cast-fn Character/TYPE [_]
+(defmethod type-cast-fn Date [_]
+  (fn [x] (condp = (class x)
+            Date
+            x
+            LocalDate
+            (-> (.atStartOfDay x)
+                (.atZone (ZoneId/systemDefault))
+                (.toInstant)
+                (Date/from))
+            LocalDateTime
+            (->
+              (.atZone x (ZoneId/systemDefault))
+              (.toInstant)
+              (Date/from)))))
+
+(defmethod type-cast-fn Character/TYPE [_]
   (fn [x] (when x (char x))))
 
-(defmethod prim-cast-fn :default [_])
+(defmethod type-cast-fn LocalDate [_]
+  (fn [x] (condp = (class x)
+            Date
+            (-> (.toInstant x)
+                (.atZone (ZoneId/systemDefault))
+                (.toLocalDate))
+            LocalDate
+            x
+            LocalDateTime
+            (.toLocalDate x))))
+
+(defmethod type-cast-fn LocalDateTime [_]
+  (fn [x] (condp = (class x)
+            Date
+            (-> (.toInstant x)
+                (.atZone (ZoneId/systemDefault))
+                (.toLocalDateTime))
+            LocalDate
+            (.atStartOfDay x)
+            LocalDateTime
+            x)))
+
+(defmethod type-cast-fn :default [_])
 
 (def ^:private memoize-bean-write-methods
   (memoize
@@ -143,8 +180,8 @@
 (defn invoke-bean-write-method [obj property val]
   (let [props (memoize-bean-write-methods (class obj))]
     (when-let [^Method m (get props property)]
-      (let [cast-fn (-> (.getParameterTypes m) first prim-cast-fn)]
-       (.invoke ^Method m obj (into-array [(if cast-fn (cast-fn val) val)]))))
+      (let [cast-fn (-> (.getParameterTypes m) first type-cast-fn)]
+        (.invoke ^Method m obj (into-array [(if cast-fn (cast-fn val) val)]))))
     obj))
 
 (def ^:private boolean-array-type (class (make-array Boolean 0)))
@@ -173,11 +210,11 @@
 
 (defmethod command-options :prim [& [origin]]
   {:raw? true :row-fn (fn [r]
-                        ((prim-cast-fn origin) (val (first r))))})
+                        ((type-cast-fn origin) (val (first r))))})
 (defmethod command-options :prim-vec [& [origin]]
   (let [prim-type (.getComponentType origin)]
     {:raw?          true :row-fn (fn [r]
-                                   ((prim-cast-fn prim-type) (val (first r))))
+                                   ((type-cast-fn prim-type) (val (first r))))
      :result-set-fn (fn [x] (into-array prim-type x))}))
 
 (defmethod command-options String [& _]
