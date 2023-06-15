@@ -11,6 +11,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.util.Objects;
+import java.util.Optional;
 
 public class MapperProxy implements InvocationHandler {
 
@@ -48,11 +49,10 @@ public class MapperProxy implements InvocationHandler {
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-        Alias alias = method.getAnnotation(Alias.class);
-        String mapperName = originInterface.getName() + "#" + method.getName();
-        if (null != alias) {
-            mapperName = alias.value();
-        }
+        String mapperName = Optional.ofNullable(method.getAnnotation(Alias.class))
+                .map(Alias::value)
+                .orElseGet(() -> originInterface.getName() + "#" + method.getName());
+
         IFn executor = methodCache.get(new CacheKey(groupName, mapperName, method));
         if (null != executor) {
             try (Connection conn = this.dataSource.getConnection()) {

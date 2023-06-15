@@ -61,6 +61,8 @@
     Float Float/TYPE
     Double Double/TYPE
     x))
+(defn- is-prim? [x]
+  (.isPrimitive (unwrap-prim (class x))))
 
 (defn- make-args-mapping [params objs]
   (let [args (loop [args (seq (into [] objs))
@@ -79,7 +81,9 @@
                             (map? a)
                             (walk/keywordize-keys (into {} a))
                             :else
-                            (if (.isPrimitive (unwrap-prim (class a))) a (bean a)))
+                            (if
+                              (or (is-prim? a)
+                                  (string? a)) a (bean a)))
                        item (if-let [p ^Param (.getAnnotation ^Parameter (first pm) Param)]
                               (assoc res (keyword (.value p)) ca)
                               (merge res ca))]
@@ -119,20 +123,28 @@
 (defmethod prim-cast-fn Character/TYPE [_]
   (fn [x] (when x (char x))))
 
-(def ^:private memoize-bean-write-method
-  (memoize (fn [^Class c]
-             (reduce (fn [i ^PropertyDescriptor p]
-                       (let [n (.getName p)
-                             w (.getWriteMethod p)]
-                         (if (and n w)
-                           (assoc i n w)
-                           i))) {} (seq (-> (Introspector/getBeanInfo c)
-                                            (.getPropertyDescriptors)))))))
+(defmethod prim-cast-fn :default [_])
+
+(def ^:private memoize-bean-write-methods
+  (memoize
+    (fn [^Class c]
+      (loop [props (seq (-> (Introspector/getBeanInfo c)
+                            (.getPropertyDescriptors)))
+             res (transient {})]
+        (if props
+          (let [^PropertyDescriptor p (first props)
+                n (.getName p)
+                w (.getWriteMethod p)]
+            (recur (next props)
+                   (if (and n p)
+                     (assoc! res n w) res)))
+          (persistent! res))))))
 
 (defn invoke-bean-write-method [obj property val]
-  (let [props (memoize-bean-write-method (class obj))]
-    (when-let [m (get props property)]
-      (.invoke ^Method m obj (into-array [val])))
+  (let [props (memoize-bean-write-methods (class obj))]
+    (when-let [^Method m (get props property)]
+      (let [cast-fn (-> (.getParameterTypes m) first prim-cast-fn)]
+       (.invoke ^Method m obj (into-array [(if cast-fn (cast-fn val) val)]))))
     obj))
 
 (def ^:private boolean-array-type (class (make-array Boolean 0)))

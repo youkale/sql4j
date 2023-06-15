@@ -5,7 +5,7 @@
     <groupId>io.github.youkale</groupId>
     <artifactId>sql4j</artifactId>
     <packaging>jar</packaging>
-    <version>0.1.0</version>
+    <version>0.1.2</version>
     <name>sql4j</name>
     <url>https://github.com/youkale/sql4j</url>
     <description>A lightweight persistence framework</description>
