@@ -1,5 +1,6 @@
 (ns sql4j.core
   (:require
+    [camel-snake-kebab.core :as csk]
     [clojure.java.io :as io]
     [clojure.string :as str]
     [clojure.tools.logging :as log]
@@ -21,20 +22,19 @@
         (hug/def-sqlvec-fns sql-file options))))
 
 (defn init-mappers
-  ([group-name dir] (init-mappers group-name dir ".sql" {}))
-  ([group-name dir suffix & {:as options}]
-   (let [{:keys [debug] :or {debug false}
-          :as   options} (-> (into {} options)
-                             (walk/keywordize-keys))
-         ns-symbol (-> (str group-name ".mappers")
-                       (symbol)
-                       (create-ns))
-         _ (swap! config update group-name (constantly (assoc options :ns ns-symbol)))]
-     (binding [*ns* ns-symbol]
-       (doseq [f (filter #(and (.isFile ^File %)
-                               (str/ends-with? (.getName ^File %) suffix))
-                         (file-seq (io/as-file (io/resource dir))))]
-         (def-db-fns f options))))))
+  [group-name dir suffix & {:as options}]
+  (let [{:keys [debug] :or {debug false}
+         :as   options} (-> (into {} options)
+                            (walk/keywordize-keys))
+        ns-symbol (-> (str group-name ".mappers")
+                      (symbol)
+                      (create-ns))
+        _ (swap! config update group-name (constantly (assoc options :ns ns-symbol)))]
+    (binding [*ns* ns-symbol]
+      (doseq [f (filter #(and (.isFile ^File %)
+                              (str/ends-with? (.getName ^File %) suffix))
+                        (file-seq (io/as-file (io/resource dir))))]
+        (def-db-fns f options)))))
 
 (defn- prep-args [arg]
   (cond
@@ -82,9 +82,7 @@
                             (map? a)
                             (walk/keywordize-keys (into {} a))
                             :else
-                            (if
-                              (or (is-prim? a)
-                                  (string? a)) a (bean a)))
+                            (if (or (is-prim? a) (string? a)) a (bean a)))
                        item (if-let [p ^Param (.getAnnotation ^Parameter (first pm) Param)]
                               (assoc res (keyword (.value p)) ca)
                               (merge res ca))]
@@ -120,45 +118,39 @@
 (defmethod type-cast-fn Double/TYPE [_]
   (fn [x] (when x (double x))))
 
-(defmethod type-cast-fn Date [_]
-  (fn [x] (condp = (class x)
-            Date
-            x
-            LocalDate
-            (-> (.atStartOfDay x)
-                (.atZone (ZoneId/systemDefault))
-                (.toInstant)
-                (Date/from))
-            LocalDateTime
-            (->
-              (.atZone x (ZoneId/systemDefault))
-              (.toInstant)
-              (Date/from)))))
-
 (defmethod type-cast-fn Character/TYPE [_]
   (fn [x] (when x (char x))))
 
+(defmethod type-cast-fn Date [_]
+  (fn [x]
+    (cond (instance? Date x) x
+          (instance? LocalDate x)
+          (-> (.atStartOfDay x)
+              (.atZone (ZoneId/systemDefault))
+              (.toInstant)
+              (Date/from))
+          (instance? LocalDateTime x)
+          (-> (.atZone x (ZoneId/systemDefault))
+              (.toInstant)
+              (Date/from)))))
+
 (defmethod type-cast-fn LocalDate [_]
-  (fn [x] (condp = (class x)
-            Date
-            (-> (.toInstant x)
-                (.atZone (ZoneId/systemDefault))
-                (.toLocalDate))
-            LocalDate
-            x
-            LocalDateTime
-            (.toLocalDate x))))
+  (fn [x]
+    (cond (instance? Date x)
+          (-> (.toInstant x)
+              (.atZone (ZoneId/systemDefault))
+              (.toLocalDate))
+          (instance? LocalDate x) x
+          (instance? LocalDateTime x) (.toLocalDate x))))
 
 (defmethod type-cast-fn LocalDateTime [_]
-  (fn [x] (condp = (class x)
-            Date
-            (-> (.toInstant x)
-                (.atZone (ZoneId/systemDefault))
-                (.toLocalDateTime))
-            LocalDate
-            (.atStartOfDay x)
-            LocalDateTime
-            x)))
+  (fn [x]
+    (cond (instance? Date x)
+          (-> (.toInstant x)
+              (.atZone (ZoneId/systemDefault))
+              (.toLocalDateTime))
+          (instance? LocalDate x) (.atStartOfDay x)
+          (instance? LocalDateTime x) x)))
 
 (defmethod type-cast-fn :default [_])
 
@@ -240,9 +232,8 @@
      :row-fn      (fn [r]
                     (reduce-kv
                       (fn [i k v]
-                        (invoke-bean-write-method i (get mapping k k) v))
-                      (construct-proxy def-type)
-                      r))}))
+                        (invoke-bean-write-method i (get mapping k (csk/->camelCase k)) v))
+                      (construct-proxy def-type) r))}))
 
 (defn- result-handle [^MethodSignature method-signature {:keys [result command]}]
   (let [res (hug/hugsql-result-fn result)

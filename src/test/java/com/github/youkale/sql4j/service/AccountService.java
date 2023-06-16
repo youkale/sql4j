@@ -32,7 +32,7 @@ public class AccountService {
     }
 
     private Sql4J getSql4J() {
-        return new Sql4J(dataSource, Dialect.mysql, "sql", true);
+        return new Sql4J(dataSource, Dialect.mysql, true);
     }
 
     @Test

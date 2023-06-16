@@ -22,12 +22,12 @@ public interface AccountMapper {
     int createAccount(Account entity);
 
 
-    @Results(value = {@Result(property = "id", column = "id"),
-            @Result(property = "userName", column = "user_name"),
-            @Result(property = "userPassword", column = "user_password"),
-            @Result(property = "salt", column = "salt"),
-            @Result(property = "createdAt", column = "created_at"),
-            @Result(property = "updatedAt", column = "updated_at")})
+//    @Results(value = {@Result(property = "id", column = "id"),
+//            @Result(property = "userName", column = "user_name"),
+//            @Result(property = "userPassword", column = "user_password"),
+//            @Result(property = "salt", column = "salt"),
+//            @Result(property = "createdAt", column = "created_at"),
+//            @Result(property = "updatedAt", column = "updated_at")})
     @Alias("get")
     Account get(@Param("userName") String userName);
 }

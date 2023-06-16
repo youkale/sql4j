@@ -10,6 +10,7 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -58,11 +59,10 @@ public class MethodSignature {
 
     private Map<String, String> getResultMap(Method method) {
         Results results = method.getAnnotation(Results.class);
-        if (null != results) {
-            return Stream.of(results.value()).collect(Collectors.toMap(Result::column, Result::property));
-        } else {
-            return Collections.emptyMap();
-        }
+        return Optional.ofNullable(results)
+                .map(x -> Stream.of(x.value())
+                        .collect(Collectors.toMap(Result::column, Result::property)))
+                .orElse(Collections.emptyMap());
     }
 
 }
