@@ -9,11 +9,10 @@
     <img alt="Apache License" src="https://img.shields.io/badge/License-Apache 2-green" />
   </a>
 
-  <img alt="Maven" src="https://img.shields.io/badge/-Maven-red?style=flat-square&logo=apachemaven&logoColor=white" />
-
   <img alt="Java" src="https://img.shields.io/badge/-Java-blue?style=flat-square&logo=openjdk&logoColor=white" />
 
   <img alt="Rust" src="https://img.shields.io/badge/-Clojure-green?style=flat-square&logo=clojure&logoColor=white" />
+
 </p>
 
 A lightweight persistence framework that decouples code from sql, if you are tired of complex DSL, `Sql4j` may be
@@ -33,7 +32,7 @@ output sql , but if you need to run on the server is more difficult . So I built
 <dependency>
     <groupId>io.github.youkale</groupId>
     <artifactId>sql4j</artifactId>
-    <version>0.1.5</version>
+    <version>0.1.6</version>
 </dependency>
 ```
 
