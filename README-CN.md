@@ -28,7 +28,7 @@
 <dependency>
   <groupId>io.github.youkale</groupId>
   <artifactId>sql4j</artifactId>
-  <version>0.1.6</version>
+  <version>0.1.9</version>
 </dependency>
 ```
 

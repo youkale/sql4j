@@ -12,6 +12,7 @@
            (java.beans Introspector PropertyDescriptor)
            (java.io File)
            (java.lang.reflect Method Parameter)
+           (java.nio.file FileSystemNotFoundException FileSystems FileVisitOption Files)
            (java.time LocalDate LocalDateTime ZoneId)
            (java.util Date List Map Set)))
 (def ^:private config (atom {}))
@@ -20,6 +21,35 @@
   (do (hug/def-db-fns sql-file options)
       (when (:debug options)
         (hug/def-sqlvec-fns sql-file options))))
+
+
+(defn- get-mapper-from-jar [dir uri suffix]
+  (let [path (-> (try
+                   (FileSystems/getFileSystem uri)
+                   (catch FileSystemNotFoundException _
+                     (FileSystems/newFileSystem uri {})))
+                 (.getPath "/" (make-array String 0)))
+        fs (iterator-seq (.iterator (Files/walk path (into-array [FileVisitOption/FOLLOW_LINKS]))))]
+    (map (fn [x]
+           (let [x (.toString x)]
+             (if (str/starts-with? x File/separator)
+               (subs x 1) x)))
+         (filter (fn [x]
+                   (let [fname (.getFileName x)]
+                     (and fname (str/ends-with? fname suffix)
+                          (.endsWith (.getParent x) dir)))) fs))))
+
+(defn- get-mapper-files [dir suffix]
+  (let [res-url (io/resource dir)]
+    (log/infof "dir %s, suffix %s" dir suffix)
+    (if res-url
+      (let [uri (.toURI res-url)]
+        (if (= "jar" (.getScheme uri))
+          (get-mapper-from-jar dir uri suffix)
+          (filter #(and (.isFile ^File %)
+                        (str/ends-with? (.getName ^File %) suffix))
+                  (file-seq (io/as-file (io/resource dir))))))
+      (throw (ex-info "get mapper error" {:dir dir :suffix suffix})))))
 
 (defn init-mappers
   [group-name dir suffix & {:as options}]
@@ -31,9 +61,7 @@
                       (create-ns))
         _ (swap! config update group-name (constantly (assoc options :ns ns-symbol)))]
     (binding [*ns* ns-symbol]
-      (doseq [f (filter #(and (.isFile ^File %)
-                              (str/ends-with? (.getName ^File %) suffix))
-                        (file-seq (io/as-file (io/resource dir))))]
+      (doseq [f (get-mapper-files dir suffix)]
         (def-db-fns f options)))))
 
 (defn- prep-args [arg]

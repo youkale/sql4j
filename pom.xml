@@ -5,7 +5,7 @@
     <groupId>io.github.youkale</groupId>
     <artifactId>sql4j</artifactId>
     <packaging>jar</packaging>
-    <version>0.1.6</version>
+    <version>0.1.9</version>
     <name>sql4j</name>
     <url>https://github.com/youkale/sql4j</url>
     <description>A lightweight persistence framework</description>
@@ -40,7 +40,7 @@
             <dependency>
                 <groupId>org.clojure</groupId>
                 <artifactId>clojure</artifactId>
-                <version>1.11.1</version>
+                <version>1.12.0-alpha3</version>
             </dependency>
             <dependency>
                 <groupId>com.layerware</groupId>
