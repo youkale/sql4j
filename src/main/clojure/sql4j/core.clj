@@ -12,6 +12,7 @@
            (java.beans Introspector PropertyDescriptor)
            (java.io File)
            (java.lang.reflect Method Parameter)
+           (java.nio.file FileSystems Files Paths)
            (java.time LocalDate LocalDateTime ZoneId)
            (java.util Date List Map Set)))
 (def ^:private config (atom {}))
@@ -21,6 +22,16 @@
       (when (:debug options)
         (hug/def-sqlvec-fns sql-file options))))
 
+
+(defn- get-mapper-files [dir]
+  (let [res-url (io/resource dir)]
+    (if res-url
+      (let [uri (.toURI res-url)
+            path (if (= "jar" (.getScheme uri))
+                   (FileSystems/newFileSystem uri {})
+                   (Paths/get uri))]
+        (iterator-seq (.iterator (Files/walk path 1)))))))
+
 (defn init-mappers
   [group-name dir suffix & {:as options}]
   (let [{:keys [debug] :or {debug false}
@@ -29,11 +40,13 @@
         ns-symbol (-> (str group-name ".mappers")
                       (symbol)
                       (create-ns))
+
+
         _ (swap! config update group-name (constantly (assoc options :ns ns-symbol)))]
     (binding [*ns* ns-symbol]
       (doseq [f (filter #(and (.isFile ^File %)
                               (str/ends-with? (.getName ^File %) suffix))
-                        (file-seq (io/as-file (io/resource dir))))]
+                        (get-mapper-files dir))]
         (def-db-fns f options)))))
 
 (defn- prep-args [arg]
