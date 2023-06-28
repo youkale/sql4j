@@ -32,7 +32,7 @@ output sql , but if you need to run on the server is more difficult . So I built
 <dependency>
     <groupId>io.github.youkale</groupId>
     <artifactId>sql4j</artifactId>
-    <version>0.1.9</version>
+    <version>0.2.0</version>
 </dependency>
 ```
 

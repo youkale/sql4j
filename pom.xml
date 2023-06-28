@@ -5,7 +5,7 @@
     <groupId>io.github.youkale</groupId>
     <artifactId>sql4j</artifactId>
     <packaging>jar</packaging>
-    <version>0.1.9</version>
+    <version>0.2.0</version>
     <name>sql4j</name>
     <url>https://github.com/youkale/sql4j</url>
     <description>A lightweight persistence framework</description>
@@ -68,14 +68,17 @@
         <dependency>
             <groupId>com.layerware</groupId>
             <artifactId>hugsql</artifactId>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>camel-snake-kebab</groupId>
             <artifactId>camel-snake-kebab</artifactId>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.clojure</groupId>
             <artifactId>tools.logging</artifactId>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 
